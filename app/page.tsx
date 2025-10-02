@@ -6,6 +6,14 @@ import { useEffect, useRef, useState } from "react";
 type Role = "user" | "assistant" | "system";
 type ChatMessage = { role: Role; content: string };
 
+type Conversation = {
+  id: string;
+  title: string;
+  messages: ChatMessage[];
+  createdAt: string;
+  updatedAt: string;
+};
+
 export default function Page() {
 
   // LIGHT/DARK MODE RELATED FUNCTIONALITY 
@@ -35,9 +43,23 @@ export default function Page() {
 
   // BASIC CHAT FUNCTIONALITY
 
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: "assistant", content: "Hello! I am Joey LLM assistant, how can I help you?" },
+  const [conversations, setConversations] = useState<Conversation[]>([
+    {
+      id: '001',
+      title: 'New Chat',
+      messages: [
+        { role: "assistant", content: "Hello! I am Joey LLM assistant, how can I help you?" }
+      ],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
   ]);
+
+  const [activeConversationId, setActiveConversationId] = useState('001');
+
+  const currentConversation = conversations.find(c => c.id === activeConversationId);
+  const messages = currentConversation?.messages || [];
+
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -46,12 +68,27 @@ export default function Page() {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, loading]);
 
-  async function sendMessage(e?: React.FormEvent) {
-    e?.preventDefault();
+  const updateMessages = (newMessages: ChatMessage[]) => {
+    setConversations(prev => prev.map(conv => 
+      conv.id === activeConversationId 
+        ? { 
+            ...conv, 
+            messages: newMessages,
+            updatedAt: new Date().toISOString(),
+            title: conv.title === 'New Chat' && newMessages.length > 1 
+              ? newMessages[1].content.slice(0, 30) + (newMessages[1].content.length > 30 ? '...' : '')
+              : conv.title
+          }
+        : conv
+    ));
+  };
+
+  const sendMessage = async () => {
     if (!input.trim() || loading) return;
 
     const userMsg: ChatMessage = { role: "user", content: input };
-    setMessages((prev) => [...prev, userMsg]);
+    const newMessages = [...messages, userMsg];
+    updateMessages(newMessages);
     setInput("");
     setLoading(true);
 
@@ -60,7 +97,7 @@ export default function Page() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: [...messages, userMsg].map((m) => ({
+          messages: newMessages.map((m) => ({
             role: m.role,
             content: m.content,
           })),
@@ -75,33 +112,47 @@ export default function Page() {
         role: "assistant",
         content: data.content || "Sorry, I cannot process your request.",
       };
-      setMessages((prev) => [...prev, assistantMsg]);
+      updateMessages([...newMessages, assistantMsg]);
     } catch (err: any) {
-      setMessages((prev) => [
-        ...prev,
+      updateMessages([
+        ...newMessages,
         { role: "assistant", content: `⚠️ Error: ${err.message}` },
       ]);
     } finally {
       setLoading(false);
     }
-  }
+  };
 
+  const createNewChat = () => {
+    const newId = Date.now().toString();
+    const newConv: Conversation = {
+      id: newId,
+      title: 'New Chat',
+      messages: [
+        { role: "assistant", content: "Hello! I am Joey LLM assistant, how can I help you?" }
+      ],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    setConversations(prev => [...prev, newConv]);
+    setActiveConversationId(newId);
+  };
 
-
-  // CHAT HISTORY RELATED FUNCTIONS
-
-  useEffect(() => {
-    const history = messages.map(msg => 
-      `${msg.role === 'user' ? 'You' : 'Joey'}: ${msg.content}`
-    ).join('\n\n');
-    setChatHistory(history);
-  }, [messages]);
-
-  function clearChat() {
-    setMessages([
-      { role: "assistant", content: "Hello! I am Joey LLM assistant, how can I help you?" },
-    ]);
-  }
+  const deleteConversation = (id: string) => {
+    if (conversations.length === 1) {
+      updateMessages([
+        { role: "assistant", content: "Hello! I am Joey LLM assistant, how can I help you?" }
+      ]);
+      return;
+    }
+    
+    setConversations(prev => prev.filter(c => c.id !== id));
+    
+    if (id === activeConversationId) {
+      const remaining = conversations.filter(c => c.id !== id);
+      setActiveConversationId(remaining[0].id);
+    }
+  };
 
 
   // RAG RELATED FUNCTIONS
@@ -110,7 +161,6 @@ export default function Page() {
   const [uploadInProgress, setUploadInProgress] = useState(false);
   const [websearchEnabled, setWebsearchEnabled] = useState(true);
   const [rating, setRating] = useState(0);
-  const [chatHistory, setChatHistory] = useState('');
   const [dragboxText, setDragboxText] = useState('DRAG or DROP PDF');
   
   const dragboxRef = useRef<HTMLDivElement | null>(null);
@@ -178,6 +228,14 @@ export default function Page() {
         setDragboxText("❌ Upload failed: " + (err as Error).message);
       } finally {
         setUploadInProgress(false);
+      }
+    };
+
+
+    const handleKeyPress = (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
       }
     };
 
@@ -254,7 +312,7 @@ export default function Page() {
               ? 'border-white/15 bg-white/10 text-white hover:bg-white/20'
               : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
           }`}
-          onClick={clearChat}
+          onClick={createNewChat}
           type="button"
         >
           New chat
@@ -305,11 +363,55 @@ export default function Page() {
           <h3 className={`text-lg font-semibold mb-3 ${
             isDark ? 'text-white' : 'text-slate-800'
           }`}>
-            Chat History
+            Conversations ({conversations.length})
           </h3>
-          <div className={`h-full overflow-y-auto text-xs leading-relaxed ${
-            isDark ? 'text-slate-300' : 'text-slate-600'
-          }`}>
+          <div className="space-y-2 max-h-[70vh] overflow-y-auto">
+            {conversations.map(conv => (
+              <div
+                key={conv.id}
+                className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                  conv.id === activeConversationId
+                    ? (isDark ? 'bg-white/20 border-2 border-orange-400' : 'bg-sky-100 border-2 border-sky-500')
+                    : (isDark ? 'bg-white/5 hover:bg-white/10' : 'bg-slate-50 hover:bg-slate-100')
+                }`}
+                onClick={() => setActiveConversationId(conv.id)}
+              >
+                <div className="flex justify-between items-start gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium truncate ${
+                      isDark ? 'text-white' : 'text-slate-800'
+                    }`}>
+                      {conv.title}
+                    </p>
+                    <p className={`text-xs truncate ${
+                      isDark ? 'text-slate-400' : 'text-slate-500'
+                    }`}>
+                      {conv.messages.length} messages
+                    </p>
+                    <p className={`text-xs ${
+                      isDark ? 'text-slate-500' : 'text-slate-400'
+                    }`}>
+                      {new Date(conv.updatedAt).toLocaleString()}
+                    </p>
+                  </div>
+                  {conversations.length > 1 && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteConversation(conv.id);
+                      }}
+                      className={`text-lg px-2 py-0 rounded transition-colors ${
+                        isDark
+                          ? 'text-red-400 hover:bg-red-500/20'
+                          : 'text-red-600 hover:bg-red-100'
+                      }`}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -355,8 +457,7 @@ export default function Page() {
             )}
           </div>
 
-          {/* Input */}
-          <form onSubmit={sendMessage} className="mt-3 flex items-end gap-2">
+          <div className="mt-3 flex items-end gap-2">
             <textarea
               className={`min-h-[44px] flex-1 resize-none rounded-xl border p-3 text-sm shadow focus:outline-none focus:ring-2 focus:ring-orange-400/50 ${
                 isDark
@@ -367,20 +468,21 @@ export default function Page() {
               placeholder="Message Joey…"
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              onKeyPress={handleKeyPress}
               disabled={loading}
             />
             <button
-              className={`rounded-xl bg-orange-400 px-4 py-2 text-sm font-medium shadow hover:bg-orange-300 disabled:opacity-50 transition-colors"${
+              className={`rounded-xl bg-orange-400 px-4 py-2 text-sm font-medium shadow hover:bg-orange-300 disabled:opacity-50 transition-colors ${
                 isDark
                   ? 'text-slate-800'
                   : 'text-white'
               }`}
-              type="submit"
+              onClick={sendMessage}
               disabled={loading || !input.trim()}
             >
               {loading ? "Sending…" : "Send"}
             </button>
-          </form>
+          </div>
         </div>
 
 
@@ -400,7 +502,7 @@ export default function Page() {
 
 
         {/* Right Column - Upload & Settings */}
-        <div className={`lg:col-span-3 overflow-auto rounded-2xl border p-4 shadow-xl backdrop-blur space-y-6 ${
+        <div className={`relative lg:col-span-3 overflow-auto rounded-2xl border p-4 shadow-xl backdrop-blur space-y-6 ${
           isDark
             ? 'border-white/10 bg-white/5'
             : 'border-slate-200 bg-white/80'
@@ -460,7 +562,7 @@ export default function Page() {
           </div>
 
           {/* Rating Section */}
-          <div>
+          <div className={`absolute bottom-5`}>
             <h3 className={`text-lg font-semibold mb-3 ${
               isDark ? 'text-white' : 'text-slate-800'
             }`}>
