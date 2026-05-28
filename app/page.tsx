@@ -7,9 +7,6 @@ type Role = "user" | "assistant" | "system";
 type ChatMessage = { role: Role; content: string };
 
 export default function Page() {
-
-  const [isDark, setIsDark] = useState(false);
-  
   const [messages, setMessages] = useState<ChatMessage[]>([
     { role: "assistant", content: "Hello! I am Joey LLM assistant, how can I help you?" },
   ]);
@@ -20,20 +17,6 @@ export default function Page() {
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, loading]);
-
-  // Apply theme to body element
-  useEffect(() => {
-    if (isDark) {
-      document.body.classList.add('dark-theme');
-    } else {
-      document.body.classList.remove('dark-theme');
-    }
-    
-    // Cleanup on unmount
-    return () => {
-      document.body.classList.remove('dark-theme');
-    };
-  }, [isDark]);
 
   async function sendMessage(e?: React.FormEvent) {
     e?.preventDefault();
@@ -81,21 +64,10 @@ export default function Page() {
     ]);
   }
 
-  const toggleTheme = () => {
-    setIsDark(!isDark);
-  };
-
   return (
-    <div className={`fixed inset-0 overflow-y-auto transition-colors duration-300 ${
-      isDark 
-        ? 'bg-neutral-950' // if isDark is true
-        : 'bg-neutral-100'  // if isDark is false
-    }`}>
-
-    <div className="container mx-auto max-w-4xl p-4 space-y-4">  
-      
+    <main className="space-y-4">
       {/* Banner */}
-      <div className="flex justify-center items-center relative">
+      <div className="flex justify-center">
         <Image
           src="/title_pic.png"
           alt="JoeyLLM Logo"
@@ -104,31 +76,13 @@ export default function Page() {
           priority
           className="h-20 w-auto md:h-24 lg:h-28 object-contain drop-shadow"
         />
-        <button 
-          className={`absolute right-0 rounded-full border p-3 transition-all duration-200 ${
-            isDark
-              ? 'border-white/15 bg-white/10 text-white hover:bg-white/20'
-              : 'border-slate-200 bg-white/80 text-slate-600 hover:bg-white shadow-sm'
-          } backdrop-blur`}
-          onClick={toggleTheme}
-        >
-          {isDark ? '🌔' : '🌒'}
-        </button>
       </div>
 
       {/* Header */}
-      <header className={`flex items-center justify-between rounded-2xl border px-4 py-3 shadow-lg backdrop-blur ${
-        isDark
-          ? 'border-white/10 bg-white/5 text-white'
-          : 'border-slate-200 bg-white/80 text-slate-800'
-      }`}>
+      <header className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 shadow-lg backdrop-blur">
         <h1 className="text-lg font-semibold tracking-tight">JoeyLLM Chat</h1>
         <button
-          className={`rounded-md border px-3 py-1 text-xs transition-colors ${
-            isDark
-              ? 'border-white/15 bg-white/10 text-white hover:bg-white/20'
-              : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
-          }`}
+          className="rounded-md border border-white/15 bg-white/10 px-3 py-1 text-xs text-white hover:bg-white/20"
           onClick={clearChat}
           type="button"
         >
@@ -137,24 +91,18 @@ export default function Page() {
       </header>
 
       {/* Chat window */}
-      <div className={`rounded-2xl border p-3 shadow-xl backdrop-blur ${
-        isDark
-          ? 'border-white/10 bg-white/5'
-          : 'border-slate-200 bg-white/80'
-      }`}>
+      <div className="rounded-2xl border border-white/10 bg-white/5 p-3 shadow-xl backdrop-blur">
         <div ref={listRef} className="h-[65vh] space-y-2 overflow-y-auto px-1">
           {messages.map((m, i) => (
             <div
               key={i}
               className={`max-w-[92%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm leading-relaxed shadow-sm ${
                 m.role === "assistant"
-                  ? (isDark ? "bg-white text-slate-800"
-                  : "bg-sky-600 text-white")
-                  : (isDark ? "ml-auto bg-orange-400/90 text-slate-800"
-                  : "ml-auto bg-orange-400/90 text-white")
+                  ? "bg-white text-slate-800"
+                  : "ml-auto bg-amber-400/90 text-slate-900"
               }`}
             >
-              <span className="mr-1 font-bold">
+              <span className="mr-1 font-medium">
                 {m.role === "assistant" ? "Joey" : "You"}:
               </span>
               {m.content}
@@ -170,11 +118,7 @@ export default function Page() {
         {/* Input */}
         <form onSubmit={sendMessage} className="mt-3 flex items-end gap-2">
           <textarea
-            className={`min-h-[44px] flex-1 resize-none rounded-xl border p-3 text-sm shadow focus:outline-none focus:ring-2 focus:ring-orange-400/50 ${
-              isDark
-                ? 'border-white/15 bg-neutral-800 text-slate-100 placeholder:text-slate-500'
-                : 'border-slate-200 bg-white text-slate-900 placeholder:text-slate-500'
-            }`}
+            className="min-h-[44px] flex-1 resize-none rounded-xl border border-white/15 bg-white/90 p-3 text-sm text-slate-900 placeholder:text-slate-500 shadow focus:outline-none focus:ring-2 focus:ring-amber-400/50"
             rows={2}
             placeholder="Message Joey…"
             value={input}
@@ -182,11 +126,7 @@ export default function Page() {
             disabled={loading}
           />
           <button
-            className={`rounded-xl bg-orange-400 px-4 py-2 text-sm font-medium shadow hover:bg-orange-300 disabled:opacity-50 transition-colors"${
-              isDark
-                ? 'text-slate-800'
-                : 'text-white'
-            }`}
+            className="rounded-xl bg-amber-400 px-4 py-2 text-sm font-medium text-slate-900 shadow hover:bg-amber-300 disabled:opacity-50"
             type="submit"
             disabled={loading || !input.trim()}
           >
@@ -195,15 +135,9 @@ export default function Page() {
         </form>
       </div>
 
-      {/* Footer */}
-      <p className={`text-center text-xs ${
-        isDark ? 'text-slate-400' : 'text-slate-500' 
-      }`}>
-        Using API via local route: <code className={`${
-          isDark ? 'bg-black/20' : 'bg-slate-100'
-        } px-1 rounded`}>/api/chat</code>
+      <p className="text-center text-xs text-slate-300">
+        Using API via local route: <code>/api/chat</code>
       </p>
-    </div>
-    </div>
+    </main>
   );
 }
